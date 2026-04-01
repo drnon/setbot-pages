@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SETBOT Dashboard Pages</title>
+  <style>
+    :root {
+      --bg-start: #f9f4e7;
+      --bg-end: #f4f7fb;
+      --ink: #1f2937;
+      --muted: #4b5563;
+      --line: #d6dde7;
+      --card: rgba(255, 255, 255, 0.86);
+      --accent: #005f73;
+      --buy: #177245;
+      --sell: #a8252a;
+      --neutral: #5f6c7b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans Thai", "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1300px 520px at 95% 5%, rgba(0, 95, 115, 0.12), transparent 70%),
+        radial-gradient(980px 500px at 10% 95%, rgba(251, 146, 60, 0.12), transparent 70%),
+        linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 18px 32px; }
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      backdrop-filter: blur(4px);
+      padding: 18px 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+      margin-bottom: 18px;
+    }
+    .title { margin: 0; font-size: 1.8rem; letter-spacing: 0.2px; }
+    .subtitle { margin: 6px 0 0; color: var(--muted); }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      backdrop-filter: blur(4px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 14px 16px;
+      font-size: 1.05rem;
+      background: #edf5f7;
+      border-bottom: 1px solid var(--line);
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e6ebf1; text-align: left; white-space: nowrap; }
+    th { background: #f8fafc; color: var(--muted); font-weight: 700; }
+    tr:hover td { background: #f8fcff; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      padding: 4px 9px;
+      letter-spacing: 0.2px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .buy { color: var(--buy); background: rgba(23, 114, 69, 0.1); border-color: rgba(23, 114, 69, 0.25); }
+    .sell { color: var(--sell); background: rgba(168, 37, 42, 0.12); border-color: rgba(168, 37, 42, 0.22); }
+    .neutral { color: var(--neutral); background: rgba(95, 108, 123, 0.12); border-color: rgba(95, 108, 123, 0.22); }
+    .links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .link {
+      text-decoration: none;
+      color: #053b44;
+      border: 1px solid #bdd8df;
+      padding: 7px 11px;
+      border-radius: 10px;
+      background: #eef7f9;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 14px 16px 6px;
+    }
+    .range-btn {
+      border: 1px solid #bed8df;
+      background: #f0f9fb;
+      color: #0b4550;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .range-btn.active {
+      background: #0f5e70;
+      border-color: #0f5e70;
+      color: #ffffff;
+    }
+    .date-input {
+      border: 1px solid #c9d7e3;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #ffffff;
+    }
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .num-pos {
+      color: #0f6b3b;
+      font-weight: 700;
+    }
+    .num-neg {
+      color: #a8252a;
+      font-weight: 700;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0 16px 14px;
+    }
+    .foot { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+    .hidden { display: none !important; }
+    @media (max-width: 768px) {
+      .title { font-size: 1.45rem; }
+      table { font-size: 0.87rem; }
+      th, td { padding: 9px 10px; }
+      .tables-grid { grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1 class="title">SETBOT Dashboard Pages</h1>
+      <p class="subtitle">Generated at 2026-03-31T20:31:25+07:00</p>
+      <div class="links">
+        <a class="link" href="./index.html">Dashboard Index</a>
+        <a class="link" href="./most_active_volume_value.html">Most Active Volume/Value</a>
+        <a class="link" href="./top_nvdr_buy_sell.html">TOP NVDR Buy/Sell</a>
+        <a class="link" href="./top_set100_buy_sell.html">SET100 EMA + NVDR</a>
+      </div>
+    </section>
+    
+<section class="panel">
+  <h2>Pages</h2>
+  <div style="padding: 16px;">
+    <p>Choose a page:</p>
+    <div class="links">
+      <a class="link" href="./most_active_volume_value.html">Most Active Volume Value</a>
+      <a class="link" href="./top_nvdr_buy_sell.html">TOP NVDR Buy and Sell</a>
+      <a class="link" href="./top_set100_buy_sell.html">SET100 EMA + NVDR</a>
+      <a class="link" href="./setbot_all_data.xlsx" download>Export Data (Excel)</a>
+      <button class="link" id="updateDataBtn" type="button">Update Data</button>
+    </div>
+    <p class="subtitle" style="margin-top: 14px;">
+      First data date: <strong>2025-09-15</strong>
+      | Latest data date: <strong>2026-03-31</strong>
+    </p>
+    <p class="subtitle" style="margin-top: 6px;">
+      NVDR first date: 2026-02-16 | Top Ranking first date: 2025-09-15
+    </p>
+    <p class="subtitle" style="margin-top: 6px;">
+      SET100 EMA/NVDR latest price date: 2026-03-30
+    </p>
+    <p id="updateHint" class="subtitle" style="margin-top: 10px;">Click Update Data to copy update command.</p>
+    <pre style="margin-top: 10px; background:#f8fafc; border:1px solid #d6dde7; border-radius:10px; padding:10px; overflow:auto;"><code id="updateCmd">python3 scripts/nvdr_pipeline.py sync --days 5000 --max-lookback-calendar-days 3650 --skip-existing --stop-after-consecutive-not-allowed 15 &amp;&amp; python3 scripts/top_ranking_pipeline.py ingest-latest --market set --all-security-types &amp;&amp; python3 scripts/build_pages.py --with-html</code></pre>
+  </div>
+</section>
+<script>
+(() => {
+  const btn = document.getElementById("updateDataBtn");
+  const hint = document.getElementById("updateHint");
+  const cmd = document.getElementById("updateCmd")?.textContent || "";
+  if (!btn || !hint || !cmd) return;
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      hint.textContent = "Update command copied. Run it in Terminal.";
+    } catch (err) {
+      hint.textContent = "Copy failed. Please copy command from the box below.";
+    }
+  });
+})();
+</script>
+
+  </main>
+</body>
+</html>

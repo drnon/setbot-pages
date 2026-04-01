@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SET100 Top Buy Sell (EMA Strategy + NVDR)</title>
+  <style>
+    :root {
+      --bg-start: #f9f4e7;
+      --bg-end: #f4f7fb;
+      --ink: #1f2937;
+      --muted: #4b5563;
+      --line: #d6dde7;
+      --card: rgba(255, 255, 255, 0.86);
+      --accent: #005f73;
+      --buy: #177245;
+      --sell: #a8252a;
+      --neutral: #5f6c7b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans Thai", "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1300px 520px at 95% 5%, rgba(0, 95, 115, 0.12), transparent 70%),
+        radial-gradient(980px 500px at 10% 95%, rgba(251, 146, 60, 0.12), transparent 70%),
+        linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 18px 32px; }
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      backdrop-filter: blur(4px);
+      padding: 18px 20px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+      margin-bottom: 18px;
+    }
+    .title { margin: 0; font-size: 1.8rem; letter-spacing: 0.2px; }
+    .subtitle { margin: 6px 0 0; color: var(--muted); }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      backdrop-filter: blur(4px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 14px 16px;
+      font-size: 1.05rem;
+      background: #edf5f7;
+      border-bottom: 1px solid var(--line);
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e6ebf1; text-align: left; white-space: nowrap; }
+    th { background: #f8fafc; color: var(--muted); font-weight: 700; }
+    tr:hover td { background: #f8fcff; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      padding: 4px 9px;
+      letter-spacing: 0.2px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .buy { color: var(--buy); background: rgba(23, 114, 69, 0.1); border-color: rgba(23, 114, 69, 0.25); }
+    .sell { color: var(--sell); background: rgba(168, 37, 42, 0.12); border-color: rgba(168, 37, 42, 0.22); }
+    .neutral { color: var(--neutral); background: rgba(95, 108, 123, 0.12); border-color: rgba(95, 108, 123, 0.22); }
+    .links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .link {
+      text-decoration: none;
+      color: #053b44;
+      border: 1px solid #bdd8df;
+      padding: 7px 11px;
+      border-radius: 10px;
+      background: #eef7f9;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 14px 16px 6px;
+    }
+    .range-btn {
+      border: 1px solid #bed8df;
+      background: #f0f9fb;
+      color: #0b4550;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .range-btn.active {
+      background: #0f5e70;
+      border-color: #0f5e70;
+      color: #ffffff;
+    }
+    .date-input {
+      border: 1px solid #c9d7e3;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #ffffff;
+    }
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .num-pos {
+      color: #0f6b3b;
+      font-weight: 700;
+    }
+    .num-neg {
+      color: #a8252a;
+      font-weight: 700;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0 16px 14px;
+    }
+    .foot { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+    .hidden { display: none !important; }
+    @media (max-width: 768px) {
+      .title { font-size: 1.45rem; }
+      table { font-size: 0.87rem; }
+      th, td { padding: 9px 10px; }
+      .tables-grid { grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1 class="title">SET100 Top Buy Sell (EMA Strategy + NVDR)</h1>
+      <p class="subtitle">Top SET100 candidates ranked by selectable EMA strategy plus NVDR accumulation.</p>
+      <div class="links">
+        <a class="link" href="./index.html">Dashboard Index</a>
+        <a class="link" href="./most_active_volume_value.html">Most Active Volume/Value</a>
+        <a class="link" href="./top_nvdr_buy_sell.html">TOP NVDR Buy/Sell</a>
+        <a class="link" href="./top_set100_buy_sell.html">SET100 EMA + NVDR</a>
+      </div>
+    </section>
+    
+<section class="panel">
+  <h2>Strategy Rules</h2>
+  <div style="padding: 16px 16px 8px;">
+    <p style="margin: 0 0 10px;">Universe: <strong>SET100</strong> using Official SET100 review (H1 2026) for <strong>2026-01-01 to 2026-06-30</strong>.</p>
+    <p style="margin: 0 0 10px;">EMA options: <strong>5:10, 5:25, 10:25, 10:50, 10:180, 12:26</strong></p>
+    <p style="margin: 0 0 10px;">Buy side: <strong>Fast EMA &gt; Slow EMA</strong> and <strong>NVDR 20D accumulate &gt; 0</strong>. Sell side: <strong>Fast EMA &lt; Slow EMA</strong> and <strong>NVDR 20D accumulate &lt; 0</strong>.</p>
+    <p style="margin: 0;">Confirmed = recent 5D NVDR agrees with the direction. Watch = long-side accumulation still agrees, but the last 5D has softened or bounced.</p>
+  </div>
+</section>
+<section class="panel">
+  <h2>Choose EMA Strategy</h2>
+  <div class="controls">
+    <button type="button" class="range-btn strategy-btn active" data-strategy="5:10">EMA 5:10</button><button type="button" class="range-btn strategy-btn" data-strategy="5:25">EMA 5:25</button><button type="button" class="range-btn strategy-btn" data-strategy="10:25">EMA 10:25</button><button type="button" class="range-btn strategy-btn" data-strategy="10:50">EMA 10:50</button><button type="button" class="range-btn strategy-btn" data-strategy="10:180">EMA 10:180</button><button type="button" class="range-btn strategy-btn" data-strategy="12:26">EMA 12:26</button>
+  </div>
+  <p class="meta">Switch EMA pair to re-rank top SET100 buy/sell candidates.</p>
+</section>
+
+<section id="strategy-pane-5-10" class="strategy-pane">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">14</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 5 &gt; 10 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">6</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">23</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 5 &lt; 10 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">22</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 5</th><th>EMA 10</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">157.70</td><td class="num">154.53</td><td class="num">+2.05%</td><td class="">2026-01-12 (54 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">BBL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">166.50</td><td class="num">167.22</td><td class="num">167.07</td><td class="num">+0.09%</td><td class="">2026-03-25 (3 bars)</td><td class="num">+917.24M</td><td class="num">+2.80B</td><td class="">SELL 2D</td></tr><tr><td class="num">3</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">8.36</td><td class="num">7.92</td><td class="num">+5.56%</td><td class="">2026-01-19 (49 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">4</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">33.41</td><td class="num">32.24</td><td class="num">+3.62%</td><td class="">2026-03-11 (13 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">5</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">22.79</td><td class="num">21.92</td><td class="num">+3.95%</td><td class="">2026-03-25 (3 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">6</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">39.42</td><td class="num">38.90</td><td class="num">+1.35%</td><td class="">2026-03-12 (12 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.08</td><td class="num">6.04</td><td class="num">+0.73%</td><td class="">2026-03-19 (7 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">8</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">22.39</td><td class="num">22.04</td><td class="num">+1.59%</td><td class="">2026-03-11 (13 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">9</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.43</td><td class="num">31.27</td><td class="num">+0.51%</td><td class="">2026-03-27 (1 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">17.34</td><td class="num">16.90</td><td class="num">+2.60%</td><td class="">2026-03-09 (15 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">11</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.79</td><td class="num">7.72</td><td class="num">+0.93%</td><td class="">2026-03-25 (3 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">12</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">10.29</td><td class="num">10.05</td><td class="num">+2.35%</td><td class="">2026-03-06 (16 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">13</td><td class="">MEGA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">34.25</td><td class="num">33.77</td><td class="num">33.67</td><td class="num">+0.31%</td><td class="">2026-03-30</td><td class="num">+10.81M</td><td class="num">+46.51M</td><td class="">SELL 2D</td></tr><tr><td class="num">14</td><td class="">BLA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">19.90</td><td class="num">19.65</td><td class="num">19.58</td><td class="num">+0.34%</td><td class="">2026-03-27 (1 bars)</td><td class="num">+16.68M</td><td class="num">+12.12M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">27.36</td><td class="num">26.27</td><td class="num">+4.14%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">16</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.85</td><td class="num">1.72</td><td class="num">+7.28%</td><td class="">2026-03-16 (10 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">17</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.91</td><td class="num">18.84</td><td class="num">+0.35%</td><td class="">2026-03-25 (3 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">18</td><td class="">BCPG</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">6.80</td><td class="num">6.54</td><td class="num">6.51</td><td class="num">+0.53%</td><td class="">2026-03-30</td><td class="num">-14.16M</td><td class="num">+61.71M</td><td class="">SELL 1D</td></tr><tr><td class="num">19</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.40</td><td class="num">2.34</td><td class="num">+2.51%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr><tr><td class="num">20</td><td class="">PTG</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">8.50</td><td class="num">8.32</td><td class="num">8.23</td><td class="num">+1.07%</td><td class="">2026-03-26 (2 bars)</td><td class="num">-17.99M</td><td class="num">+31.04M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 5</th><th>EMA 10</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.59</td><td class="num">21.77</td><td class="num">-0.86%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">2</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">164.06</td><td class="num">165.59</td><td class="num">-0.93%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">3</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.43</td><td class="num">18.57</td><td class="num">-0.76%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">ADVANC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">370.00</td><td class="num">369.36</td><td class="num">370.07</td><td class="num">-0.19%</td><td class="">2026-03-24 (4 bars)</td><td class="num">-938.92M</td><td class="num">-1.75B</td><td class="">BUY 1D</td></tr><tr><td class="num">5</td><td class="">TISCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">112.50</td><td class="num">112.66</td><td class="num">112.73</td><td class="num">-0.06%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-70.76M</td><td class="num">-1.14B</td><td class="">SELL 4D</td></tr><tr><td class="num">6</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">14.56</td><td class="num">15.07</td><td class="num">-3.37%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">21.92</td><td class="num">22.17</td><td class="num">-1.15%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">8</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">28.16</td><td class="num">28.80</td><td class="num">-2.25%</td><td class="">2026-02-27 (20 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">9</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">32.90</td><td class="num">32.94</td><td class="num">-0.11%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">10</td><td class="">STECON</td><td class=""><span class="badge sell">SELL</span></td><td class="num">11.20</td><td class="num">11.25</td><td class="num">11.42</td><td class="num">-1.56%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-534.12K</td><td class="num">-341.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">11</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.30</td><td class="num">110.41</td><td class="num">-0.10%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">12</td><td class="">JTS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">52.75</td><td class="num">53.36</td><td class="num">54.46</td><td class="num">-2.02%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-3.25M</td><td class="num">-145.23M</td><td class="">BUY 1D</td></tr><tr><td class="num">13</td><td class="">CPN</td><td class=""><span class="badge sell">SELL</span></td><td class="num">61.50</td><td class="num">62.16</td><td class="num">62.78</td><td class="num">-0.98%</td><td class="">2026-03-18 (8 bars)</td><td class="num">-37.75M</td><td class="num">-122.06M</td><td class="">BUY 2D</td></tr><tr><td class="num">14</td><td class="">CK</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.80</td><td class="num">14.85</td><td class="num">15.04</td><td class="num">-1.28%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-28.04M</td><td class="num">-113.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.44</td><td class="num">2.47</td><td class="num">-1.41%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">16</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.51</td><td class="num">8.54</td><td class="num">-0.34%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">17</td><td class="">PR9</td><td class=""><span class="badge sell">SELL</span></td><td class="num">16.20</td><td class="num">16.24</td><td class="num">16.41</td><td class="num">-1.04%</td><td class="">2026-02-24 (23 bars)</td><td class="num">-178.75K</td><td class="num">-53.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">18</td><td class="">CENTEL</td><td class=""><span class="badge sell">SELL</span></td><td class="num">32.25</td><td class="num">32.60</td><td class="num">32.76</td><td class="num">-0.48%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-29.69M</td><td class="num">-47.33M</td><td class="">BUY 1D</td></tr><tr><td class="num">19</td><td class="">M</td><td class=""><span class="badge sell">SELL</span></td><td class="num">19.00</td><td class="num">18.79</td><td class="num">18.94</td><td class="num">-0.80%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-14.18M</td><td class="num">-45.98M</td><td class="">BUY 1D</td></tr><tr><td class="num">20</td><td class="">QH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">1.37</td><td class="num">1.36</td><td class="num">1.36</td><td class="num">-0.11%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-11.95M</td><td class="num">-39.37M</td><td class="">SELL 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 5:10 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">TISCO</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">112.50</td><td class="num">-1.14B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">TOP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">50.25</td><td class="num">-745.76M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">TCAP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">56.25</td><td class="num">-315.78M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">RCL</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">31.75</td><td class="num">+183.31M</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">AURA</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">13.60</td><td class="num">-75.60M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">TASCO</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">13.40</td><td class="num">-69.50M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">BLA</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">19.90</td><td class="num">+12.12M</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">AOT</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">51.50</td><td class="num">-3.99B</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">GULF</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">59.00</td><td class="num">-3.17B</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">PTT</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">35.25</td><td class="num">-968.32M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">OR</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">12.30</td><td class="num">-576.52M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">WHA</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">4.16</td><td class="num">-347.78M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">RATCH</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">29.75</td><td class="num">-41.45M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">PTG</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">8.50</td><td class="num">+31.04M</td><td class=""><span class="badge neutral">WATCH_BUY</span></td></tr><tr><td class="">BBL</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">166.50</td><td class="num">+2.80B</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">KBANK</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">190.00</td><td class="num">-1.46B</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">SCC</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">206.00</td><td class="num">-870.25M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">CPF</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">20.90</td><td class="num">-817.07M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">SCGP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">20.20</td><td class="num">-387.06M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">BTG</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">24.40</td><td class="num">+371.12M</td><td class=""><span class="badge buy">BUY</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<section id="strategy-pane-5-25" class="strategy-pane hidden">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">12</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 5 &gt; 25 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">4</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">27</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 5 &lt; 25 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">30</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 5</th><th>EMA 25</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">157.70</td><td class="num">147.17</td><td class="num">+7.15%</td><td class="">2025-12-12 (72 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">BBL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">166.50</td><td class="num">167.22</td><td class="num">167.12</td><td class="num">+0.06%</td><td class="">2026-03-26 (2 bars)</td><td class="num">+917.24M</td><td class="num">+2.80B</td><td class="">SELL 2D</td></tr><tr><td class="num">3</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">8.36</td><td class="num">7.12</td><td class="num">+17.51%</td><td class="">2026-01-20 (48 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">4</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">33.41</td><td class="num">29.97</td><td class="num">+11.48%</td><td class="">2026-03-09 (15 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">5</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">22.79</td><td class="num">20.90</td><td class="num">+9.07%</td><td class="">2026-02-16 (29 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">6</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">39.42</td><td class="num">37.50</td><td class="num">+5.11%</td><td class="">2026-01-07 (57 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.08</td><td class="num">5.94</td><td class="num">+2.44%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">8</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">22.39</td><td class="num">21.05</td><td class="num">+6.35%</td><td class="">2026-03-11 (13 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">9</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.43</td><td class="num">30.78</td><td class="num">+2.09%</td><td class="">2026-02-10 (33 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">17.34</td><td class="num">15.90</td><td class="num">+9.11%</td><td class="">2026-03-06 (16 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">11</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.79</td><td class="num">7.63</td><td class="num">+2.06%</td><td class="">2026-03-18 (8 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">12</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">10.29</td><td class="num">9.70</td><td class="num">+6.10%</td><td class="">2026-03-06 (16 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">13</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">27.36</td><td class="num">23.77</td><td class="num">+15.10%</td><td class="">2026-01-20 (48 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">14</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.85</td><td class="num">1.52</td><td class="num">+21.47%</td><td class="">2026-03-17 (9 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.91</td><td class="num">18.58</td><td class="num">+1.80%</td><td class="">2026-02-09 (34 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">16</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.40</td><td class="num">2.27</td><td class="num">+5.84%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 5</th><th>EMA 25</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.59</td><td class="num">22.56</td><td class="num">-4.31%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">2</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">164.06</td><td class="num">170.81</td><td class="num">-3.95%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">3</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.43</td><td class="num">19.14</td><td class="num">-3.75%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">ADVANC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">370.00</td><td class="num">369.36</td><td class="num">370.66</td><td class="num">-0.35%</td><td class="">2026-03-24 (4 bars)</td><td class="num">-938.92M</td><td class="num">-1.75B</td><td class="">BUY 1D</td></tr><tr><td class="num">5</td><td class="">TISCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">112.50</td><td class="num">112.66</td><td class="num">112.76</td><td class="num">-0.08%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-70.76M</td><td class="num">-1.14B</td><td class="">SELL 4D</td></tr><tr><td class="num">6</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">14.56</td><td class="num">16.27</td><td class="num">-10.49%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">21.92</td><td class="num">22.65</td><td class="num">-3.21%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">8</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">28.16</td><td class="num">30.81</td><td class="num">-8.62%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">9</td><td class="">OR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">12.30</td><td class="num">12.00</td><td class="num">12.05</td><td class="num">-0.41%</td><td class="">2026-02-25 (22 bars)</td><td class="num">-167.51M</td><td class="num">-576.52M</td><td class="">SELL 6D</td></tr><tr><td class="num">10</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">32.90</td><td class="num">34.58</td><td class="num">-4.86%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">11</td><td class="">STECON</td><td class=""><span class="badge sell">SELL</span></td><td class="num">11.20</td><td class="num">11.25</td><td class="num">11.36</td><td class="num">-1.05%</td><td class="">2026-03-26 (2 bars)</td><td class="num">-534.12K</td><td class="num">-341.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">12</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.30</td><td class="num">112.71</td><td class="num">-2.14%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">13</td><td class="">TCAP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">56.25</td><td class="num">56.14</td><td class="num">56.70</td><td class="num">-0.99%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-13.75M</td><td class="num">-315.78M</td><td class="">SELL 1D</td></tr><tr><td class="num">14</td><td class="">JTS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">52.75</td><td class="num">53.36</td><td class="num">56.67</td><td class="num">-5.84%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-3.25M</td><td class="num">-145.23M</td><td class="">BUY 1D</td></tr><tr><td class="num">15</td><td class="">CPN</td><td class=""><span class="badge sell">SELL</span></td><td class="num">61.50</td><td class="num">62.16</td><td class="num">63.31</td><td class="num">-1.81%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-37.75M</td><td class="num">-122.06M</td><td class="">BUY 2D</td></tr><tr><td class="num">16</td><td class="">CK</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.80</td><td class="num">14.85</td><td class="num">15.18</td><td class="num">-2.19%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-28.04M</td><td class="num">-113.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">17</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.44</td><td class="num">2.59</td><td class="num">-5.97%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">18</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.51</td><td class="num">8.88</td><td class="num">-4.17%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">19</td><td class="">GFPT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">9.30</td><td class="num">9.28</td><td class="num">9.30</td><td class="num">-0.19%</td><td class="">2026-02-20 (25 bars)</td><td class="num">-88.22K</td><td class="num">-92.60M</td><td class="">SELL 1D</td></tr><tr><td class="num">20</td><td class="">AURA</td><td class=""><span class="badge sell">SELL</span></td><td class="num">13.60</td><td class="num">13.40</td><td class="num">13.47</td><td class="num">-0.50%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-11.84M</td><td class="num">-75.60M</td><td class="">SELL 11D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 5:25 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">TISCO</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">112.50</td><td class="num">-1.14B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">SCC</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">206.00</td><td class="num">-870.25M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">CPF</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">20.90</td><td class="num">-817.07M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">BBL</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">166.50</td><td class="num">+2.80B</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">SCGP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">20.20</td><td class="num">-387.06M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">STECON</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">11.20</td><td class="num">-341.64M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">GULF</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">59.00</td><td class="num">-3.17B</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">WHA</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">4.16</td><td class="num">-347.78M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">KKP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">75.00</td><td class="num">-84.41M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">ADVANC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-24 (4 bars)</td><td class="num">370.00</td><td class="num">-1.75B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">CK</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">14.80</td><td class="num">-113.76M</td><td class=""><span class="badge sell">SELL</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<section id="strategy-pane-10-25" class="strategy-pane hidden">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">11</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &gt; 25 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">4</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">28</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &lt; 25 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">32</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 25</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">154.53</td><td class="num">147.17</td><td class="num">+5.00%</td><td class="">2025-12-15 (71 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">7.92</td><td class="num">7.12</td><td class="num">+11.32%</td><td class="">2026-01-26 (44 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">3</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">32.24</td><td class="num">29.97</td><td class="num">+7.58%</td><td class="">2025-12-25 (63 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">4</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">21.92</td><td class="num">20.90</td><td class="num">+4.92%</td><td class="">2026-02-18 (27 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">5</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">38.90</td><td class="num">37.50</td><td class="num">+3.71%</td><td class="">2026-01-08 (56 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">6</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.04</td><td class="num">5.94</td><td class="num">+1.70%</td><td class="">2025-12-03 (77 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">7</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">22.04</td><td class="num">21.05</td><td class="num">+4.69%</td><td class="">2026-03-12 (12 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">8</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.27</td><td class="num">30.78</td><td class="num">+1.57%</td><td class="">2026-02-09 (34 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">9</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">16.90</td><td class="num">15.90</td><td class="num">+6.35%</td><td class="">2025-12-12 (72 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.72</td><td class="num">7.63</td><td class="num">+1.12%</td><td class="">2026-03-16 (10 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">11</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">10.05</td><td class="num">9.70</td><td class="num">+3.66%</td><td class="">2026-03-06 (16 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">12</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">26.27</td><td class="num">23.77</td><td class="num">+10.52%</td><td class="">2026-01-22 (46 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">13</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.72</td><td class="num">1.52</td><td class="num">+13.22%</td><td class="">2026-03-17 (9 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">14</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.84</td><td class="num">18.58</td><td class="num">+1.45%</td><td class="">2026-02-09 (34 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.34</td><td class="num">2.27</td><td class="num">+3.24%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 25</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">AOT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">51.50</td><td class="num">50.40</td><td class="num">50.82</td><td class="num">-0.83%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-17.35M</td><td class="num">-3.99B</td><td class="">SELL 1D</td></tr><tr><td class="num">2</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.77</td><td class="num">22.56</td><td class="num">-3.48%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">3</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">165.59</td><td class="num">170.81</td><td class="num">-3.05%</td><td class="">2026-03-12 (12 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.57</td><td class="num">19.14</td><td class="num">-3.02%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">5</td><td class="">ADVANC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">370.00</td><td class="num">370.07</td><td class="num">370.66</td><td class="num">-0.16%</td><td class="">2026-03-26 (2 bars)</td><td class="num">-938.92M</td><td class="num">-1.75B</td><td class="">BUY 1D</td></tr><tr><td class="num">6</td><td class="">TISCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">112.50</td><td class="num">112.73</td><td class="num">112.76</td><td class="num">-0.03%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-70.76M</td><td class="num">-1.14B</td><td class="">SELL 4D</td></tr><tr><td class="num">7</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">15.07</td><td class="num">16.27</td><td class="num">-7.37%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">8</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">22.17</td><td class="num">22.65</td><td class="num">-2.08%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">9</td><td class="">TOP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">50.25</td><td class="num">47.96</td><td class="num">48.03</td><td class="num">-0.15%</td><td class="">2026-03-16 (10 bars)</td><td class="num">-22.54M</td><td class="num">-745.76M</td><td class="">BUY 1D</td></tr><tr><td class="num">10</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">28.80</td><td class="num">30.81</td><td class="num">-6.52%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">11</td><td class="">OR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">12.30</td><td class="num">11.78</td><td class="num">12.05</td><td class="num">-2.18%</td><td class="">2026-02-26 (21 bars)</td><td class="num">-167.51M</td><td class="num">-576.52M</td><td class="">SELL 6D</td></tr><tr><td class="num">12</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">32.94</td><td class="num">34.58</td><td class="num">-4.75%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">13</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.41</td><td class="num">112.71</td><td class="num">-2.04%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">14</td><td class="">TCAP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">56.25</td><td class="num">56.09</td><td class="num">56.70</td><td class="num">-1.08%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-13.75M</td><td class="num">-315.78M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">JTS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">52.75</td><td class="num">54.46</td><td class="num">56.67</td><td class="num">-3.90%</td><td class="">2026-03-11 (13 bars)</td><td class="num">-3.25M</td><td class="num">-145.23M</td><td class="">BUY 1D</td></tr><tr><td class="num">16</td><td class="">CPN</td><td class=""><span class="badge sell">SELL</span></td><td class="num">61.50</td><td class="num">62.78</td><td class="num">63.31</td><td class="num">-0.83%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-37.75M</td><td class="num">-122.06M</td><td class="">BUY 2D</td></tr><tr><td class="num">17</td><td class="">CK</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.80</td><td class="num">15.04</td><td class="num">15.18</td><td class="num">-0.92%</td><td class="">2026-03-26 (2 bars)</td><td class="num">-28.04M</td><td class="num">-113.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">18</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.47</td><td class="num">2.59</td><td class="num">-4.62%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">19</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.54</td><td class="num">8.88</td><td class="num">-3.84%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">20</td><td class="">GFPT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">9.30</td><td class="num">9.23</td><td class="num">9.30</td><td class="num">-0.70%</td><td class="">2026-01-15 (51 bars)</td><td class="num">-88.22K</td><td class="num">-92.60M</td><td class="">SELL 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 10:25 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">TISCO</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">112.50</td><td class="num">-1.14B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">ADVANC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">370.00</td><td class="num">-1.75B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">CK</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">14.80</td><td class="num">-113.76M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">KKP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">75.00</td><td class="num">-84.41M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">SPRC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">7.30</td><td class="num">+243.47M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">CPN</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">61.50</td><td class="num">-122.06M</td><td class=""><span class="badge sell">SELL</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<section id="strategy-pane-10-50" class="strategy-pane hidden">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">13</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &gt; 50 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">4</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">23</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &lt; 50 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">32</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 50</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">154.53</td><td class="num">138.40</td><td class="num">+11.65%</td><td class="">2025-12-23 (65 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">BBL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">166.50</td><td class="num">167.07</td><td class="num">166.33</td><td class="num">+0.45%</td><td class="">2026-03-24 (4 bars)</td><td class="num">+917.24M</td><td class="num">+2.80B</td><td class="">SELL 2D</td></tr><tr><td class="num">3</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">7.92</td><td class="num">6.38</td><td class="num">+24.10%</td><td class="">2026-01-28 (42 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">4</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">32.24</td><td class="num">27.86</td><td class="num">+15.70%</td><td class="">2026-01-09 (55 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">5</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">21.92</td><td class="num">19.95</td><td class="num">+9.91%</td><td class="">2026-02-18 (27 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">6</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">38.90</td><td class="num">35.44</td><td class="num">+9.74%</td><td class="">2026-01-13 (53 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">SPRC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.30</td><td class="num">7.12</td><td class="num">7.06</td><td class="num">+0.91%</td><td class="">2025-10-31 (100 bars)</td><td class="num">+132.16M</td><td class="num">+243.47M</td><td class="">BUY 8D</td></tr><tr><td class="num">8</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.04</td><td class="num">5.74</td><td class="num">+5.14%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">9</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">22.04</td><td class="num">20.46</td><td class="num">+7.74%</td><td class="">2026-03-16 (10 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.27</td><td class="num">29.92</td><td class="num">+4.50%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">11</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">16.90</td><td class="num">14.89</td><td class="num">+13.53%</td><td class="">2025-12-16 (70 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">12</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.72</td><td class="num">7.47</td><td class="num">+3.30%</td><td class="">2025-12-25 (63 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">13</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">10.05</td><td class="num">9.37</td><td class="num">+7.31%</td><td class="">2026-02-12 (31 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">14</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">26.27</td><td class="num">21.59</td><td class="num">+21.67%</td><td class="">2026-02-19 (26 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">15</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.72</td><td class="num">1.38</td><td class="num">+24.57%</td><td class="">2026-01-09 (55 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">16</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.84</td><td class="num">17.97</td><td class="num">+4.86%</td><td class="">2026-02-09 (34 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">17</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.34</td><td class="num">2.18</td><td class="num">+7.53%</td><td class="">2026-02-10 (33 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 50</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">AOT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">51.50</td><td class="num">50.40</td><td class="num">51.14</td><td class="num">-1.45%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-17.35M</td><td class="num">-3.99B</td><td class="">SELL 1D</td></tr><tr><td class="num">2</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.77</td><td class="num">23.14</td><td class="num">-5.89%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">3</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">165.59</td><td class="num">172.05</td><td class="num">-3.76%</td><td class="">2026-03-18 (8 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.57</td><td class="num">19.52</td><td class="num">-4.90%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">5</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">15.07</td><td class="num">17.07</td><td class="num">-11.70%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">6</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">22.17</td><td class="num">22.66</td><td class="num">-2.12%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">7</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">28.80</td><td class="num">32.30</td><td class="num">-10.83%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">8</td><td class="">OR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">12.30</td><td class="num">11.78</td><td class="num">12.58</td><td class="num">-6.36%</td><td class="">2026-02-27 (20 bars)</td><td class="num">-167.51M</td><td class="num">-576.52M</td><td class="">SELL 6D</td></tr><tr><td class="num">9</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">32.94</td><td class="num">35.94</td><td class="num">-8.34%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">10</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.41</td><td class="num">114.73</td><td class="num">-3.77%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">11</td><td class="">TCAP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">56.25</td><td class="num">56.09</td><td class="num">57.04</td><td class="num">-1.68%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-13.75M</td><td class="num">-315.78M</td><td class="">SELL 1D</td></tr><tr><td class="num">12</td><td class="">JTS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">52.75</td><td class="num">54.46</td><td class="num">56.11</td><td class="num">-2.95%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-3.25M</td><td class="num">-145.23M</td><td class="">BUY 1D</td></tr><tr><td class="num">13</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.47</td><td class="num">2.62</td><td class="num">-5.64%</td><td class="">2026-03-16 (10 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">14</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.54</td><td class="num">9.08</td><td class="num">-5.97%</td><td class="">2026-03-11 (13 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">15</td><td class="">GFPT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">9.30</td><td class="num">9.23</td><td class="num">9.49</td><td class="num">-2.72%</td><td class="">2026-01-21 (47 bars)</td><td class="num">-88.22K</td><td class="num">-92.60M</td><td class="">SELL 1D</td></tr><tr><td class="num">16</td><td class="">AURA</td><td class=""><span class="badge sell">SELL</span></td><td class="num">13.60</td><td class="num">13.35</td><td class="num">13.58</td><td class="num">-1.72%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-11.84M</td><td class="num">-75.60M</td><td class="">SELL 11D</td></tr><tr><td class="num">17</td><td class="">PR9</td><td class=""><span class="badge sell">SELL</span></td><td class="num">16.20</td><td class="num">16.41</td><td class="num">17.95</td><td class="num">-8.60%</td><td class="">2026-03-02 (19 bars)</td><td class="num">-178.75K</td><td class="num">-53.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">18</td><td class="">CENTEL</td><td class=""><span class="badge sell">SELL</span></td><td class="num">32.25</td><td class="num">32.76</td><td class="num">34.18</td><td class="num">-4.16%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-29.69M</td><td class="num">-47.33M</td><td class="">BUY 1D</td></tr><tr><td class="num">19</td><td class="">M</td><td class=""><span class="badge sell">SELL</span></td><td class="num">19.00</td><td class="num">18.94</td><td class="num">20.18</td><td class="num">-6.14%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-14.18M</td><td class="num">-45.98M</td><td class="">BUY 1D</td></tr><tr><td class="num">20</td><td class="">QH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">1.37</td><td class="num">1.36</td><td class="num">1.37</td><td class="num">-0.38%</td><td class="">2026-03-23 (5 bars)</td><td class="num">-11.95M</td><td class="num">-39.37M</td><td class="">SELL 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 10:50 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">BBL</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-24 (4 bars)</td><td class="num">166.50</td><td class="num">+2.80B</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">COM7</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">22.00</td><td class="num">-815.10M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">SIRI</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">1.34</td><td class="num">-249.40M</td><td class=""><span class="badge neutral">WATCH_SELL</span></td></tr><tr><td class="">JTS</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">52.75</td><td class="num">-145.23M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">QH</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">1.37</td><td class="num">-39.37M</td><td class=""><span class="badge sell">SELL</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<section id="strategy-pane-10-180" class="strategy-pane hidden">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">15</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &gt; 180 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">4</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">19</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 10 &lt; 180 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">30</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 180</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">154.53</td><td class="num">122.87</td><td class="num">+25.77%</td><td class="">2026-01-14 (52 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">BBL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">166.50</td><td class="num">167.07</td><td class="num">159.74</td><td class="num">+4.59%</td><td class="">2025-10-02 (119 bars)</td><td class="num">+917.24M</td><td class="num">+2.80B</td><td class="">SELL 2D</td></tr><tr><td class="num">3</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">7.92</td><td class="num">5.42</td><td class="num">+46.26%</td><td class="">2026-02-12 (31 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">4</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">32.24</td><td class="num">25.15</td><td class="num">+28.18%</td><td class="">2026-01-21 (47 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">5</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">21.92</td><td class="num">18.66</td><td class="num">+17.47%</td><td class="">2026-02-20 (25 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">6</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">38.90</td><td class="num">31.87</td><td class="num">+22.05%</td><td class="">2026-01-26 (44 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">SPRC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.30</td><td class="num">7.12</td><td class="num">6.06</td><td class="num">+17.62%</td><td class="">2025-11-03 (99 bars)</td><td class="num">+132.16M</td><td class="num">+243.47M</td><td class="">BUY 8D</td></tr><tr><td class="num">8</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.04</td><td class="num">5.15</td><td class="num">+17.30%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">9</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">22.04</td><td class="num">21.18</td><td class="num">+4.04%</td><td class="">2026-03-19 (7 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.27</td><td class="num">27.87</td><td class="num">+12.20%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">11</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">16.90</td><td class="num">13.32</td><td class="num">+26.89%</td><td class="">2025-12-22 (66 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">12</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.72</td><td class="num">7.04</td><td class="num">+9.66%</td><td class="">2026-01-05 (59 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">13</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">10.05</td><td class="num">8.38</td><td class="num">+20.03%</td><td class="">2025-11-27 (81 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">14</td><td class="">MEGA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">34.25</td><td class="num">33.67</td><td class="num">33.43</td><td class="num">+0.72%</td><td class="">2026-03-27 (1 bars)</td><td class="num">+10.81M</td><td class="num">+46.51M</td><td class="">SELL 2D</td></tr><tr><td class="num">15</td><td class="">BLA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">19.90</td><td class="num">19.58</td><td class="num">19.52</td><td class="num">+0.31%</td><td class="">2026-03-30</td><td class="num">+16.68M</td><td class="num">+12.12M</td><td class="">SELL 1D</td></tr><tr><td class="num">16</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">26.27</td><td class="num">20.53</td><td class="num">+27.97%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">17</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.72</td><td class="num">1.21</td><td class="num">+42.56%</td><td class="">2026-01-16 (50 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">18</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.84</td><td class="num">16.70</td><td class="num">+12.81%</td><td class="">2026-02-10 (33 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">19</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.34</td><td class="num">2.01</td><td class="num">+16.46%</td><td class="">2026-02-11 (32 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 10</th><th>EMA 180</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.77</td><td class="num">23.19</td><td class="num">-6.12%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">2</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">165.59</td><td class="num">171.75</td><td class="num">-3.59%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">3</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.57</td><td class="num">19.80</td><td class="num">-6.22%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">15.07</td><td class="num">18.48</td><td class="num">-18.42%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">5</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">22.17</td><td class="num">23.35</td><td class="num">-5.02%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">6</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">28.80</td><td class="num">35.47</td><td class="num">-18.79%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">OR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">12.30</td><td class="num">11.78</td><td class="num">13.39</td><td class="num">-12.00%</td><td class="">2026-02-27 (20 bars)</td><td class="num">-167.51M</td><td class="num">-576.52M</td><td class="">SELL 6D</td></tr><tr><td class="num">8</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">32.94</td><td class="num">37.21</td><td class="num">-11.48%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">9</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.41</td><td class="num">116.13</td><td class="num">-4.92%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">10</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.47</td><td class="num">2.56</td><td class="num">-3.41%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">11</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.54</td><td class="num">9.73</td><td class="num">-12.20%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">12</td><td class="">GFPT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">9.30</td><td class="num">9.23</td><td class="num">9.79</td><td class="num">-5.69%</td><td class="">2026-01-27 (43 bars)</td><td class="num">-88.22K</td><td class="num">-92.60M</td><td class="">SELL 1D</td></tr><tr><td class="num">13</td><td class="">AURA</td><td class=""><span class="badge sell">SELL</span></td><td class="num">13.60</td><td class="num">13.35</td><td class="num">14.02</td><td class="num">-4.80%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-11.84M</td><td class="num">-75.60M</td><td class="">SELL 11D</td></tr><tr><td class="num">14</td><td class="">PR9</td><td class=""><span class="badge sell">SELL</span></td><td class="num">16.20</td><td class="num">16.41</td><td class="num">20.08</td><td class="num">-18.27%</td><td class="">2025-10-24 (105 bars)</td><td class="num">-178.75K</td><td class="num">-53.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">CENTEL</td><td class=""><span class="badge sell">SELL</span></td><td class="num">32.25</td><td class="num">32.76</td><td class="num">32.93</td><td class="num">-0.52%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-29.69M</td><td class="num">-47.33M</td><td class="">BUY 1D</td></tr><tr><td class="num">16</td><td class="">M</td><td class=""><span class="badge sell">SELL</span></td><td class="num">19.00</td><td class="num">18.94</td><td class="num">24.90</td><td class="num">-23.93%</td><td class="">2025-10-02 (119 bars)</td><td class="num">-14.18M</td><td class="num">-45.98M</td><td class="">BUY 1D</td></tr><tr><td class="num">17</td><td class="">CHG</td><td class=""><span class="badge sell">SELL</span></td><td class="num">1.42</td><td class="num">1.43</td><td class="num">1.55</td><td class="num">-8.12%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-12.62M</td><td class="num">-34.27M</td><td class="">BUY 1D</td></tr><tr><td class="num">18</td><td class="">VGI</td><td class=""><span class="badge sell">SELL</span></td><td class="num">0.84</td><td class="num">0.86</td><td class="num">1.17</td><td class="num">-26.66%</td><td class="">2025-10-03 (118 bars)</td><td class="num">-14.83M</td><td class="num">-19.19M</td><td class="">SELL 6D</td></tr><tr><td class="num">19</td><td class="">PLANB</td><td class=""><span class="badge sell">SELL</span></td><td class="num">3.68</td><td class="num">3.80</td><td class="num">4.13</td><td class="num">-7.81%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-15.02M</td><td class="num">-17.02M</td><td class="">BUY 3D</td></tr><tr><td class="num">20</td><td class="">CPALL</td><td class=""><span class="badge neutral">WATCH_SELL</span></td><td class="num">44.50</td><td class="num">45.01</td><td class="num">46.29</td><td class="num">-2.76%</td><td class="">2026-03-20 (6 bars)</td><td class="num">+932.04M</td><td class="num">-1.72B</td><td class="">BUY 3D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 10:180 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">CENTEL</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">32.25</td><td class="num">-47.33M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">MEGA</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">34.25</td><td class="num">+46.51M</td><td class=""><span class="badge buy">BUY</span></td></tr><tr><td class="">SCGP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">20.20</td><td class="num">-387.06M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">SIRI</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">1.34</td><td class="num">-249.40M</td><td class=""><span class="badge neutral">WATCH_SELL</span></td></tr><tr><td class="">KTC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">29.25</td><td class="num">-1.62B</td><td class=""><span class="badge neutral">WATCH_SELL</span></td></tr><tr><td class="">BEM</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">5.15</td><td class="num">-356.68M</td><td class=""><span class="badge neutral">WATCH_SELL</span></td></tr><tr><td class="">ICHI</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-23 (5 bars)</td><td class="num">12.20</td><td class="num">-21.44M</td><td class=""><span class="badge neutral">WATCH_SELL</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<section id="strategy-pane-12-26" class="strategy-pane hidden">
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Confirmed BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">11</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 12 &gt; 26 and NVDR 20D/5D both positive.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch BUY</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">4</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bullish with positive NVDR 20D, but 5D has cooled.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Confirmed SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">27</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA 12 &lt; 26 and NVDR 20D/5D both negative.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Watch SELL</h2>
+      <div style="padding: 16px;">
+        <div style="font-size: 2rem; font-weight: 800;">33</div>
+        <div class="meta" style="padding: 6px 0 0;">EMA bearish with negative NVDR 20D, but 5D has bounced.</div>
+      </div>
+    </div>
+  </section>
+  <section class="tables-grid">
+    <div class="panel">
+      <h2>Top SET100 Buy Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 12</th><th>EMA 26</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">PTTEP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">161.00</td><td class="num">153.40</td><td class="num">146.75</td><td class="num">+4.53%</td><td class="">2025-12-17 (69 bars)</td><td class="num">+3.41B</td><td class="num">+7.83B</td><td class="">BUY 8D</td></tr><tr><td class="num">2</td><td class="">TFG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">8.65</td><td class="num">7.78</td><td class="num">7.08</td><td class="num">+10.00%</td><td class="">2026-01-27 (43 bars)</td><td class="num">+442.34M</td><td class="num">+1.22B</td><td class="">BUY 6D</td></tr><tr><td class="num">3</td><td class="">PTTGC</td><td class=""><span class="badge buy">BUY</span></td><td class="num">35.50</td><td class="num">31.84</td><td class="num">29.86</td><td class="num">+6.66%</td><td class="">2025-12-30 (60 bars)</td><td class="num">+597.63M</td><td class="num">+377.72M</td><td class="">SELL 1D</td></tr><tr><td class="num">4</td><td class="">BTG</td><td class=""><span class="badge buy">BUY</span></td><td class="num">24.40</td><td class="num">21.73</td><td class="num">20.84</td><td class="num">+4.24%</td><td class="">2026-02-18 (27 bars)</td><td class="num">+374.68M</td><td class="num">+371.12M</td><td class="">BUY 5D</td></tr><tr><td class="num">5</td><td class="">BCP</td><td class=""><span class="badge buy">BUY</span></td><td class="num">40.00</td><td class="num">38.70</td><td class="num">37.41</td><td class="num">+3.45%</td><td class="">2026-01-09 (55 bars)</td><td class="num">+85.56M</td><td class="num">+309.20M</td><td class="">BUY 1D</td></tr><tr><td class="num">6</td><td class="">BANPU</td><td class=""><span class="badge buy">BUY</span></td><td class="num">6.20</td><td class="num">6.02</td><td class="num">5.93</td><td class="num">+1.60%</td><td class="">2025-12-03 (77 bars)</td><td class="num">+72.50M</td><td class="num">+223.16M</td><td class="">BUY 2D</td></tr><tr><td class="num">7</td><td class="">KCE</td><td class=""><span class="badge buy">BUY</span></td><td class="num">22.70</td><td class="num">21.88</td><td class="num">21.01</td><td class="num">+4.16%</td><td class="">2026-03-12 (12 bars)</td><td class="num">+16.43M</td><td class="num">+213.87M</td><td class="">SELL 1D</td></tr><tr><td class="num">8</td><td class="">RCL</td><td class=""><span class="badge buy">BUY</span></td><td class="num">31.75</td><td class="num">31.22</td><td class="num">30.75</td><td class="num">+1.52%</td><td class="">2025-12-02 (78 bars)</td><td class="num">+40.68M</td><td class="num">+183.31M</td><td class="">SELL 1D</td></tr><tr><td class="num">9</td><td class="">STA</td><td class=""><span class="badge buy">BUY</span></td><td class="num">17.80</td><td class="num">16.74</td><td class="num">15.84</td><td class="num">+5.68%</td><td class="">2025-12-12 (72 bars)</td><td class="num">+38.97M</td><td class="num">+153.06M</td><td class="">SELL 1D</td></tr><tr><td class="num">10</td><td class="">PRM</td><td class=""><span class="badge buy">BUY</span></td><td class="num">7.90</td><td class="num">7.70</td><td class="num">7.63</td><td class="num">+0.99%</td><td class="">2025-12-23 (65 bars)</td><td class="num">+47.38M</td><td class="num">+142.41M</td><td class="">BUY 4D</td></tr><tr><td class="num">11</td><td class="">STGT</td><td class=""><span class="badge buy">BUY</span></td><td class="num">10.90</td><td class="num">9.99</td><td class="num">9.68</td><td class="num">+3.16%</td><td class="">2026-03-06 (16 bars)</td><td class="num">+86.55M</td><td class="num">+73.07M</td><td class="">BUY 2D</td></tr><tr><td class="num">12</td><td class="">HANA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">28.25</td><td class="num">25.87</td><td class="num">23.64</td><td class="num">+9.46%</td><td class="">2026-01-23 (45 bars)</td><td class="num">-86.54M</td><td class="num">+742.63M</td><td class="">SELL 3D</td></tr><tr><td class="num">13</td><td class="">IRPC</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">1.93</td><td class="num">1.68</td><td class="num">1.51</td><td class="num">+11.18%</td><td class="">2026-03-17 (9 bars)</td><td class="num">-19.11M</td><td class="num">+273.69M</td><td class="">SELL 1D</td></tr><tr><td class="num">14</td><td class="">AMATA</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">19.00</td><td class="num">18.82</td><td class="num">18.55</td><td class="num">+1.45%</td><td class="">2026-02-09 (34 bars)</td><td class="num">-12.49M</td><td class="num">+143.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">15</td><td class="">GUNKUL</td><td class=""><span class="badge neutral">WATCH_BUY</span></td><td class="num">2.48</td><td class="num">2.33</td><td class="num">2.27</td><td class="num">+2.82%</td><td class="">2026-02-09 (34 bars)</td><td class="num">-21.32M</td><td class="num">+49.16M</td><td class="">BUY 1D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+    <div class="panel">
+      <h2>Top SET100 Sell Candidates</h2>
+      
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Rank</th><th>Symbol</th><th>Signal</th><th>Close</th><th>EMA 12</th><th>EMA 26</th><th>Gap %</th><th>Last Cross</th><th>NVDR 5D</th><th>NVDR 20D</th><th>Streak</th></tr></thead>
+    <tbody><tr><td class="num">1</td><td class="">AOT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">51.50</td><td class="num">50.37</td><td class="num">50.86</td><td class="num">-0.97%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-17.35M</td><td class="num">-3.99B</td><td class="">SELL 1D</td></tr><tr><td class="num">2</td><td class="">MINT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">21.40</td><td class="num">21.88</td><td class="num">22.60</td><td class="num">-3.20%</td><td class="">2026-03-04 (18 bars)</td><td class="num">-281.38M</td><td class="num">-2.71B</td><td class="">SELL 21D</td></tr><tr><td class="num">3</td><td class="">BH</td><td class=""><span class="badge sell">SELL</span></td><td class="num">164.50</td><td class="num">166.51</td><td class="num">170.98</td><td class="num">-2.61%</td><td class="">2026-03-16 (10 bars)</td><td class="num">-7.03M</td><td class="num">-2.37B</td><td class="">BUY 2D</td></tr><tr><td class="num">4</td><td class="">BDMS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">18.40</td><td class="num">18.65</td><td class="num">19.17</td><td class="num">-2.74%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-90.65M</td><td class="num">-1.79B</td><td class="">BUY 2D</td></tr><tr><td class="num">5</td><td class="">ADVANC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">370.00</td><td class="num">370.31</td><td class="num">370.55</td><td class="num">-0.06%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-938.92M</td><td class="num">-1.75B</td><td class="">BUY 1D</td></tr><tr><td class="num">6</td><td class="">TIDLOR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.30</td><td class="num">15.28</td><td class="num">16.32</td><td class="num">-6.37%</td><td class="">2026-03-10 (14 bars)</td><td class="num">-258.65M</td><td class="num">-1.08B</td><td class="">BUY 1D</td></tr><tr><td class="num">7</td><td class="">COM7</td><td class=""><span class="badge sell">SELL</span></td><td class="num">22.00</td><td class="num">22.28</td><td class="num">22.66</td><td class="num">-1.68%</td><td class="">2026-03-20 (6 bars)</td><td class="num">-104.68M</td><td class="num">-815.10M</td><td class="">BUY 2D</td></tr><tr><td class="num">8</td><td class="">TOP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">50.25</td><td class="num">47.95</td><td class="num">48.01</td><td class="num">-0.12%</td><td class="">2026-03-18 (8 bars)</td><td class="num">-22.54M</td><td class="num">-745.76M</td><td class="">BUY 1D</td></tr><tr><td class="num">9</td><td class="">MTC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">28.00</td><td class="num">29.11</td><td class="num">30.91</td><td class="num">-5.80%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-482.12M</td><td class="num">-621.64M</td><td class="">BUY 1D</td></tr><tr><td class="num">10</td><td class="">OR</td><td class=""><span class="badge sell">SELL</span></td><td class="num">12.30</td><td class="num">11.77</td><td class="num">12.07</td><td class="num">-2.49%</td><td class="">2026-02-26 (21 bars)</td><td class="num">-167.51M</td><td class="num">-576.52M</td><td class="">SELL 6D</td></tr><tr><td class="num">11</td><td class="">GPSC</td><td class=""><span class="badge sell">SELL</span></td><td class="num">33.50</td><td class="num">33.13</td><td class="num">34.67</td><td class="num">-4.46%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-34.37M</td><td class="num">-461.13M</td><td class="">SELL 4D</td></tr><tr><td class="num">12</td><td class="">EGCO</td><td class=""><span class="badge sell">SELL</span></td><td class="num">110.50</td><td class="num">110.67</td><td class="num">112.84</td><td class="num">-1.93%</td><td class="">2026-03-05 (17 bars)</td><td class="num">-19.99M</td><td class="num">-339.00M</td><td class="">SELL 3D</td></tr><tr><td class="num">13</td><td class="">TCAP</td><td class=""><span class="badge sell">SELL</span></td><td class="num">56.25</td><td class="num">56.15</td><td class="num">56.73</td><td class="num">-1.03%</td><td class="">2026-03-06 (16 bars)</td><td class="num">-13.75M</td><td class="num">-315.78M</td><td class="">SELL 1D</td></tr><tr><td class="num">14</td><td class="">JTS</td><td class=""><span class="badge sell">SELL</span></td><td class="num">52.75</td><td class="num">54.89</td><td class="num">56.73</td><td class="num">-3.24%</td><td class="">2026-03-16 (10 bars)</td><td class="num">-3.25M</td><td class="num">-145.23M</td><td class="">BUY 1D</td></tr><tr><td class="num">15</td><td class="">CPN</td><td class=""><span class="badge sell">SELL</span></td><td class="num">61.50</td><td class="num">62.96</td><td class="num">63.29</td><td class="num">-0.51%</td><td class="">2026-03-26 (2 bars)</td><td class="num">-37.75M</td><td class="num">-122.06M</td><td class="">BUY 2D</td></tr><tr><td class="num">16</td><td class="">CK</td><td class=""><span class="badge sell">SELL</span></td><td class="num">14.80</td><td class="num">15.11</td><td class="num">15.17</td><td class="num">-0.43%</td><td class="">2026-03-27 (1 bars)</td><td class="num">-28.04M</td><td class="num">-113.76M</td><td class="">SELL 1D</td></tr><tr><td class="num">17</td><td class="">ERW</td><td class=""><span class="badge sell">SELL</span></td><td class="num">2.42</td><td class="num">2.49</td><td class="num">2.60</td><td class="num">-4.03%</td><td class="">2026-03-11 (13 bars)</td><td class="num">-39.75M</td><td class="num">-106.59M</td><td class="">BUY 1D</td></tr><tr><td class="num">18</td><td class="">JMT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">8.65</td><td class="num">8.59</td><td class="num">8.90</td><td class="num">-3.49%</td><td class="">2026-03-09 (15 bars)</td><td class="num">-7.97M</td><td class="num">-102.65M</td><td class="">BUY 1D</td></tr><tr><td class="num">19</td><td class="">GFPT</td><td class=""><span class="badge sell">SELL</span></td><td class="num">9.30</td><td class="num">9.23</td><td class="num">9.31</td><td class="num">-0.83%</td><td class="">2026-01-20 (48 bars)</td><td class="num">-88.22K</td><td class="num">-92.60M</td><td class="">SELL 1D</td></tr><tr><td class="num">20</td><td class="">AURA</td><td class=""><span class="badge sell">SELL</span></td><td class="num">13.60</td><td class="num">13.36</td><td class="num">13.47</td><td class="num">-0.81%</td><td class="">2026-03-19 (7 bars)</td><td class="num">-11.84M</td><td class="num">-75.60M</td><td class="">SELL 11D</td></tr></tbody>
+  </table>
+</div>
+
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Fresh EMA 12:26 Crosses (Last 5 Trading Bars)</h2>
+    
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Symbol</th><th>Cross</th><th>Cross Date</th><th>Close</th><th>NVDR 20D</th><th>Strategy</th></tr></thead>
+    <tbody><tr><td class="">ADVANC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">370.00</td><td class="num">-1.75B</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">CK</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-27 (1 bars)</td><td class="num">14.80</td><td class="num">-113.76M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">CPN</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-26 (2 bars)</td><td class="num">61.50</td><td class="num">-122.06M</td><td class=""><span class="badge sell">SELL</span></td></tr><tr><td class="">KKP</td><td class=""><span class="badge buy">BUY_CROSS</span></td><td class="">2026-03-25 (3 bars)</td><td class="num">75.00</td><td class="num">-84.41M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr><tr><td class="">SPRC</td><td class=""><span class="badge sell">SELL_CROSS</span></td><td class="">2026-03-24 (4 bars)</td><td class="num">7.30</td><td class="num">+243.47M</td><td class=""><span class="badge neutral">NEUTRAL</span></td></tr></tbody>
+  </table>
+</div>
+
+  </section>
+</section>
+
+<p class="foot">Latest price date: 2026-03-30 | Latest NVDR date: 2026-03-30 | Generated at: 2026-03-31T20:31:25+07:00</p>
+<p class="foot">Constituent source: <a href="https://media.set.or.th/set/Documents/2025/Dec/SET50_100_H1_2026.pdf" target="_blank" rel="noreferrer">Official SET100 review (H1 2026)</a></p>
+
+<script>
+(() => {
+  const buttons = Array.from(document.querySelectorAll(".strategy-btn"));
+  const panes = Array.from(document.querySelectorAll(".strategy-pane"));
+  function paneId(key) {
+    return `strategy-pane-${key.replace(":", "-")}`;
+  }
+  function setActive(key) {
+    buttons.forEach((btn) => btn.classList.toggle("active", btn.dataset.strategy === key));
+    panes.forEach((pane) => pane.classList.add("hidden"));
+    const activePane = document.getElementById(paneId(key));
+    if (activePane) activePane.classList.remove("hidden");
+  }
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.strategy;
+      if (!key) return;
+      setActive(key);
+    });
+  });
+  setActive("5:10");
+})();
+</script>
+
+  </main>
+</body>
+</html>

@@ -149,7 +149,7 @@
   <main class="wrap">
     <section class="hero">
       <h1 class="title">SETBOT Dashboard Pages</h1>
-      <p class="subtitle">Generated at 2026-03-31T20:31:25+07:00</p>
+      <p class="subtitle">Generated at 2026-04-01T08:20:27+00:00</p>
       <div class="links">
         <a class="link" href="./index.html">Dashboard Index</a>
         <a class="link" href="./most_active_volume_value.html">Most Active Volume/Value</a>
@@ -171,13 +171,13 @@
     </div>
     <p class="subtitle" style="margin-top: 14px;">
       First data date: <strong>2025-09-15</strong>
-      | Latest data date: <strong>2026-03-31</strong>
+      | Latest data date: <strong>2026-04-01</strong>
     </p>
     <p class="subtitle" style="margin-top: 6px;">
       NVDR first date: 2026-02-16 | Top Ranking first date: 2025-09-15
     </p>
     <p class="subtitle" style="margin-top: 6px;">
-      SET100 EMA/NVDR latest price date: 2026-03-30
+      SET100 EMA/NVDR latest price date: 2026-03-31
     </p>
     <p id="updateHint" class="subtitle" style="margin-top: 10px;">Click Update Data to copy update command.</p>
     <pre style="margin-top: 10px; background:#f8fafc; border:1px solid #d6dde7; border-radius:10px; padding:10px; overflow:auto;"><code id="updateCmd">python3 scripts/nvdr_pipeline.py sync --days 5000 --max-lookback-calendar-days 3650 --skip-existing --stop-after-consecutive-not-allowed 15 &amp;&amp; python3 scripts/top_ranking_pipeline.py ingest-latest --market set --all-security-types &amp;&amp; python3 scripts/build_pages.py --with-html</code></pre>
